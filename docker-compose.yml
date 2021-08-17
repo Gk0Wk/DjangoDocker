@@ -1,0 +1,43 @@
+version: '3'
+services:
+    # Django2 版本，已经是旧版本了，只为兼容使用
+    django2:
+        container_name: django
+        build:
+            context: ./
+            dockerfile: django2.dockerfile
+        restart: always
+        ports:
+            - 8080:8080
+        volumes:
+            # 自己的项目文件
+            - ./src:/server
+        # 要指定tty: true，否则migrate会卡住。
+        tty: true
+        # 如果使用了mysql想要进行通讯，需要links: ['mysql']和depends_on: ['mysql']，
+        # 后者说明了启动顺序，前者将mysql的虚拟网络地址传给django，
+        # 然后django的settings.py里面的数据库地址写'mysql'就可以，相当于修改了hosts，否则没法找到另一个镜像实例
+        depends_on:
+            - mysql
+        links:
+            - mysql
+        command:
+            - sh
+            - -c
+            - |
+                python manage.py makemigrations
+                python manage.py migrate
+                python manage.py runserver 0.0.0.0:8080
+    mysql:
+        container_name: mysql
+        # mysql8对django2不友好，因为要用了新的登录验证算法，嫌麻烦还是用mysql5.7
+        image: mysql:5.7.34
+        restart: always
+        expose:
+            - 3306
+        ports:
+            - 3306:3306
+        environment:
+            MYSQL_ROOT_PASSWORD: 123456
+networks:
+    default:
